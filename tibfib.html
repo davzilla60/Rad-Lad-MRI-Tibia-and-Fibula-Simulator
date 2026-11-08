@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MR-I Ready — Tibia + Fibula Simulator</title>
+<style>
+/* ============ MR-I READY (Scanogram engine) — scoped styles ============ */
+#scg-root *{box-sizing:border-box;margin:0;padding:0}
+#scg-root{
+  --bg:#0c0e0b;
+  --panel:#14180f;
+  --panel-2:#1b2015;
+  --line:#2c3a22;
+  --line-soft:#22301b;
+  --ink:#dfe7d6;
+  --ink-dim:#8ba07d;
+  --ink-faint:#5d6f52;
+  --accent:#5fe08a;
+  --accent-2:#8fbf6b;
+  --accent-ink:#0c1a0f;
+  --warn:#e8b45f;
+  --bad:#e06c5f;
+  --mono:ui-monospace,"SF Mono","Cascadia Mono","Roboto Mono",Menlo,Consolas,monospace;
+  --sans:"Trebuchet MS","Segoe UI",system-ui,-apple-system,sans-serif;
+  position:relative;
+  width:100%;
+  max-width:1040px;
+  box-sizing:border-box;
+  margin:0 auto;
+  background:var(--bg);
+  color:var(--ink);
+  font-family:var(--mono);
+  font-size:14px;
+  line-height:1.45;
+  border:1px solid var(--line);
+  border-radius:10px;
+  overflow:hidden;
+  -webkit-font-smoothing:antialiased;
+}
+#scg-root button{font-family:var(--mono);cursor:pointer}
+#scg-root .scg-hidden{display:none!important}
+
+/* ---- top bar ---- */
+#scg-root .scg-topbar{
+  display:flex;align-items:center;gap:12px;
+  padding:10px 14px;
+  background:linear-gradient(180deg,#171c12,#11150d);
+  border-bottom:1px solid var(--line);
+}
+#scg-root .scg-mark{display:flex;align-items:center;gap:9px;min-width:0;overflow:hidden}
+#scg-root .scg-mark .scg-mark-ic{flex:none;height:26px;width:auto;display:block;background:#d3d5d3;border-radius:5px;padding:3px 5px}
+#scg-root .scg-mark-tx{display:flex;flex-direction:column;line-height:1.05;min-width:0}
+#scg-root .scg-mark-tx b{font-family:var(--sans);font-weight:700;letter-spacing:.14em;font-size:13px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#scg-root .scg-mark-tx span{font-size:10px;letter-spacing:.22em;color:var(--ink-faint);text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#scg-root .scg-topbar .scg-spacer{flex:1}
+#scg-root .scg-phasechip{
+  font-size:10px;letter-spacing:.18em;text-transform:uppercase;
+  padding:5px 10px;border:1px solid var(--line);border-radius:999px;
+  color:var(--accent);background:#101609;white-space:nowrap;
+}
+#scg-root .scg-phasechip::before{content:"● ";color:var(--accent);font-size:8px;vertical-align:2px}
+
+/* ---- main grid ---- */
+#scg-root .scg-body{display:grid;grid-template-columns:1fr 320px;gap:0}
+#scg-root .scg-stage{position:relative;background:#000;border-right:1px solid var(--line)}
+#scg-root .scg-viewport{
+  position:relative;width:100%;aspect-ratio:1/1;max-height:min(70vh,600px);background:#000;
+  overflow:hidden;user-select:none;touch-action:none;
+}
+#scg-root .scg-img{
+  position:absolute;inset:0;width:100%;height:100%;
+  object-fit:contain;object-position:center;
+  image-rendering:auto;transition:opacity .35s ease;
+}
+#scg-root #scgImgB{opacity:0}
+
+/* reticle */
+#scg-root .scg-reticle{position:absolute;inset:0;pointer-events:none;color:#7bd39a;opacity:.5;mix-blend-mode:screen}
+#scg-root .scg-reticle line{stroke:currentColor;stroke-width:1;stroke-dasharray:3 6}
+#scg-root .scg-reticle path{stroke:currentColor;stroke-width:1.4;fill:none}
+
+/* sweep line */
+#scg-root .scg-sweep{
+  position:absolute;left:0;right:0;height:2px;top:0;
+  background:linear-gradient(90deg,transparent,var(--accent),transparent);
+  box-shadow:0 0 16px 3px rgba(95,224,138,.55);
+  opacity:0;
+}
+#scg-root .scg-stage.is-scan .scg-sweep{opacity:1;animation:scg-sweepmove 2.2s linear}
+@keyframes scg-sweepmove{from{top:0}to{top:100%}}
+#scg-root .scg-stage.is-scan .scg-img{clip-path:inset(0 0 100% 0);animation:scg-reveal 2.2s linear forwards}
+@keyframes scg-reveal{to{clip-path:inset(0 0 0 0)}}
+
+/* acquisition noise band */
+#scg-root .scg-acq{
+  position:absolute;inset:0;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:14px;
+  background:repeating-linear-gradient(0deg,#050805 0 2px,#0b0f0a 2px 4px);
+}
+#scg-root .scg-acq .scg-acq-band{
+  position:absolute;left:0;right:0;height:22%;
+  background:linear-gradient(180deg,transparent,rgba(95,224,138,.16),rgba(95,224,138,.32),rgba(95,224,138,.16),transparent);
+  border-top:1px solid rgba(95,224,138,.5);border-bottom:1px solid rgba(95,224,138,.5);
+  animation:scg-acqband 1.05s linear infinite;
+}
+@keyframes scg-acqband{from{top:-24%}to{top:102%}}
+#scg-root .scg-acq h4{font-family:var(--sans);letter-spacing:.34em;font-size:15px;color:var(--accent);z-index:2;text-align:center}
+#scg-root .scg-acq .scg-acq-num{font-size:12px;color:var(--ink-dim);letter-spacing:.12em;z-index:2;text-align:center;padding:0 12px}
+#scg-root .scg-acq .scg-acq-big{font-family:var(--sans);font-size:44px;color:var(--ink);z-index:2;letter-spacing:.06em}
+
+/* viewport overlays */
+#scg-root .scg-vp-tl,#scg-root .scg-vp-bl,#scg-root .scg-vp-br{
+  position:absolute;font-size:10.5px;letter-spacing:.08em;color:#9fe7b8;
+  text-shadow:0 0 6px rgba(0,0,0,.9);pointer-events:none;white-space:pre;line-height:1.5;z-index:8;
+}
+#scg-root .scg-vp-tl{top:9px;left:11px}
+#scg-root .scg-vp-bl{bottom:9px;left:11px;color:var(--ink-dim)}
+#scg-root .scg-vp-br{bottom:9px;right:11px;color:var(--ink-dim);text-align:right}
+
+/* lateral scanogram picture-in-picture */
+#scg-root .scg-pip{
+  position:absolute;top:12px;right:12px;width:30%;max-width:150px;
+  border:1px solid var(--line);background:#000;overflow:hidden;z-index:7;
+  box-shadow:0 2px 12px rgba(0,0,0,.6);
+}
+#scg-root .scg-pip img{display:block;width:100%;height:auto;opacity:.92}
+#scg-root .scg-pip .scg-pip-line{
+  position:absolute;left:0;right:0;height:0;border-top:1.5px solid var(--warn);
+  box-shadow:0 0 6px rgba(232,180,95,.5);
+}
+#scg-root .scg-pip.is-on .scg-pip-line{border-top-color:var(--accent)}
+#scg-root .scg-pip span{
+  position:absolute;left:4px;top:3px;font-size:9px;letter-spacing:.14em;color:var(--ink-dim);
+  text-shadow:0 0 4px #000;
+}
+
+/* watermark */
+#scg-root .scg-watermark{
+  position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  pointer-events:none;z-index:7;
+}
+#scg-root .scg-watermark b{
+  font-family:var(--sans);font-weight:700;letter-spacing:.22em;font-size:clamp(14px,3vw,22px);
+  color:rgba(224,108,95,.9);border:2px solid rgba(224,108,95,.65);
+  padding:8px 18px;transform:rotate(-14deg);text-align:center;
+  background:rgba(10,4,4,.28);
+}
+
+/* ---- right rail ---- */
+#scg-root .scg-rail{display:flex;flex-direction:column;background:var(--panel);min-width:0}
+#scg-root .scg-rail-head{padding:11px 14px 9px;border-bottom:1px solid var(--line)}
+#scg-root .scg-rail-head h3{font-family:var(--sans);font-size:12px;letter-spacing:.2em;text-transform:uppercase;color:var(--ink)}
+#scg-root .scg-rail-head p{font-size:10.5px;color:var(--ink-faint);letter-spacing:.06em;margin-top:2px}
+#scg-root .scg-rail-body{padding:12px 14px;display:flex;flex-direction:column;gap:12px;overflow-y:auto;flex:1}
+
+#scg-root .scg-readout{border:1px solid var(--line-soft);border-radius:7px;background:var(--panel-2);padding:10px 11px}
+#scg-root .scg-readout .scg-ro-lab{font-size:9.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--ink-faint)}
+#scg-root .scg-readout .scg-ro-val{font-size:26px;font-weight:600;color:var(--accent);letter-spacing:.02em;line-height:1.15}
+#scg-root .scg-readout .scg-ro-val small{font-size:12px;color:var(--ink-dim);font-weight:400}
+#scg-root .scg-readout.is-warn .scg-ro-val{color:var(--warn)}
+
+#scg-root .scg-kv{display:flex;justify-content:space-between;gap:8px;font-size:11.5px;padding:3px 0;border-bottom:1px dotted var(--line-soft)}
+#scg-root .scg-kv:last-child{border-bottom:0}
+#scg-root .scg-kv span:first-child{color:var(--ink-faint);letter-spacing:.08em}
+#scg-root .scg-kv span:last-child{color:var(--ink);text-align:right}
+#scg-root .scg-kv b{color:var(--accent)}
+
+#scg-root .scg-tdc{width:100%;height:110px;display:block;background:#0a0d08;border:1px solid var(--line-soft);border-radius:6px}
+
+#scg-root .scg-hint{font-size:11px;color:var(--ink-dim);letter-spacing:.03em}
+#scg-root .scg-hint.is-ok{color:var(--accent)}
+#scg-root .scg-hint.is-warn{color:var(--warn)}
+
+#scg-root .scg-size{display:flex;align-items:center;gap:8px}
+#scg-root .scg-size input[type=range]{flex:1;accent-color:var(--accent)}
+#scg-root .scg-size output{font-size:12px;color:var(--accent);min-width:52px;text-align:right}
+
+/* checklist (patient setup) */
+#scg-root .scg-check{display:flex;flex-direction:column;gap:6px}
+#scg-root .scg-check div{display:flex;gap:8px;font-size:11px;color:var(--ink-faint);line-height:1.35;transition:color .3s}
+#scg-root .scg-check div i{font-style:normal;flex:none;width:14px;color:var(--line)}
+#scg-root .scg-check div.is-done{color:var(--ink)}
+#scg-root .scg-check div.is-done i{color:var(--accent)}
+
+/* method chooser */
+#scg-root .scg-choice{display:flex;flex-direction:column;gap:8px}
+#scg-root .scg-choice button{
+  text-align:left;padding:10px 11px;border:1px solid var(--line);border-radius:7px;background:var(--panel-2);color:var(--ink);
+  font-size:12px;letter-spacing:.05em;transition:border-color .15s,background .15s;
+}
+#scg-root .scg-choice button b{display:block;color:var(--accent);font-size:12.5px;letter-spacing:.1em;margin-bottom:3px}
+#scg-root .scg-choice button span{color:var(--ink-dim);font-size:10.5px;line-height:1.4;display:block}
+#scg-root .scg-choice button:hover{border-color:var(--accent);background:#10200f}
+
+/* command buttons */
+#scg-root .scg-cmds{display:flex;flex-direction:column;gap:6px;padding:10px 14px;border-top:1px solid var(--line)}
+#scg-root .scg-btn{
+  display:flex;align-items:center;gap:8px;width:100%;
+  padding:8px 11px;border:1px solid var(--line);border-radius:6px;
+  background:var(--panel-2);color:var(--ink);font-size:12px;letter-spacing:.06em;
+  text-align:left;transition:border-color .15s,background .15s,color .15s;
+}
+#scg-root .scg-btn .scg-key{
+  font-size:9.5px;color:var(--ink-faint);border:1px solid var(--line);border-radius:3px;
+  padding:1px 4px;margin-left:auto;letter-spacing:.05em;
+}
+#scg-root .scg-btn:hover:not(:disabled){border-color:var(--accent);color:var(--accent)}
+#scg-root .scg-btn.is-primary{border-color:var(--accent);color:var(--accent);background:#10200f}
+#scg-root .scg-btn.is-primary:hover:not(:disabled){background:var(--accent);color:var(--accent-ink)}
+#scg-root .scg-btn.is-pulse{animation:scg-btnpulse 1.3s ease-in-out infinite}
+@keyframes scg-btnpulse{0%,100%{box-shadow:0 0 0 0 rgba(95,224,138,.0)}50%{box-shadow:0 0 0 3px rgba(95,224,138,.25)}}
+#scg-root .scg-btn:disabled{opacity:.4;cursor:not-allowed}
+
+/* command input */
+#scg-root .scg-cli{display:flex;align-items:center;gap:7px;padding:9px 14px;border-top:1px solid var(--line);background:#0a0d07}
+#scg-root .scg-cli::before{content:"scanogram $";color:var(--accent);font-size:11px;letter-spacing:.05em;flex:none}
+#scg-root .scg-cli input{
+  flex:1;background:transparent;border:0;outline:0;color:var(--ink);
+  font-family:var(--mono);font-size:12px;letter-spacing:.04em;min-width:0;
+}
+#scg-root .scg-cli input::placeholder{color:var(--ink-faint)}
+
+/* console log */
+#scg-root .scg-log{
+  height:104px;overflow-y:auto;padding:8px 14px;background:#080b06;
+  border-top:1px solid var(--line);font-size:11px;line-height:1.6;color:var(--ink-dim);
+  grid-column:1/-1;
+}
+#scg-root .scg-log .scg-l-cmd{color:var(--accent)}
+#scg-root .scg-log .scg-l-ok{color:var(--accent-2)}
+#scg-root .scg-log .scg-l-warn{color:var(--warn)}
+#scg-root .scg-log .scg-l-bad{color:var(--bad)}
+#scg-root .scg-log .scg-l-sys{color:var(--ink-faint)}
+
+/* ---- title screen ---- */
+#scg-root .scg-title{
+  position:absolute;inset:0;z-index:20;background:
+    radial-gradient(120% 80% at 50% 0%,#18201300,#0b0e08 70%),
+    linear-gradient(180deg,#10140c,#0a0d07);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  text-align:center;padding:32px 24px;gap:6px;overflow-y:auto;
+}
+#scg-root .scg-title .scg-logo-plate{
+  background:#d3d5d3;border-radius:12px;padding:14px 26px 10px;margin-bottom:16px;
+  box-shadow:0 2px 24px rgba(0,0,0,.35);
+}
+#scg-root .scg-title .scg-logo-plate img{display:block;width:clamp(180px,42vw,264px);height:auto}
+#scg-root .scg-title h1{
+  font-family:var(--sans);font-weight:700;letter-spacing:.16em;
+  font-size:clamp(26px,5vw,40px);color:var(--ink);
+}
+#scg-root .scg-title h1 .scg-the{display:block;font-size:.4em;letter-spacing:.5em;color:var(--accent);margin-bottom:.35em}
+#scg-root .scg-title .scg-sub{font-size:12.5px;letter-spacing:.14em;color:var(--ink-dim);max-width:46ch}
+#scg-root .scg-title .scg-start{
+  margin-top:22px;padding:12px 26px;border:1px solid var(--accent);border-radius:7px;
+  background:#10200f;color:var(--accent);font-size:13px;letter-spacing:.2em;text-transform:uppercase;
+  transition:background .16s,color .16s;
+}
+#scg-root .scg-title .scg-start:hover{background:var(--accent);color:var(--accent-ink)}
+#scg-root .scg-title .scg-fine{margin-top:16px;font-size:10px;letter-spacing:.06em;color:var(--ink-faint);max-width:60ch}
+#scg-root .scg-title .scg-fine a{color:var(--ink-dim)}
+#scg-root .scg-title .scg-scouts{display:flex;gap:10px;margin-top:20px;opacity:.62}
+#scg-root .scg-title .scg-scouts img{height:84px;width:auto;border:1px solid var(--line);border-radius:4px}
+
+/* ---- result screen ---- */
+#scg-root .scg-result{grid-column:1/-1;background:var(--panel);border-top:1px solid var(--line);padding:16px;display:grid;grid-template-columns:1fr 320px;gap:16px}
+#scg-root .scg-result h2{font-family:var(--sans);font-size:15px;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);margin-bottom:3px}
+#scg-root .scg-result h2.is-bad{color:var(--warn)}
+#scg-root .scg-result .scg-cap{font-size:11px;color:var(--ink-dim);letter-spacing:.04em;margin-bottom:12px;max-width:64ch}
+#scg-root .scg-hero{position:relative;background:#000;border:1px solid var(--line);border-radius:8px;overflow:hidden;aspect-ratio:1/1}
+#scg-root .scg-hero img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
+#scg-root .scg-hero .scg-hero-lab{position:absolute;left:10px;top:9px;font-size:10px;letter-spacing:.16em;color:var(--accent);text-shadow:0 0 6px #000;white-space:pre}
+#scg-root .scg-hero .scg-hero-hu{position:absolute;right:10px;bottom:9px;font-size:10px;letter-spacing:.1em;color:var(--ink-dim);text-shadow:0 0 6px #000;text-align:right;white-space:pre}
+#scg-root .scg-debrief{display:flex;flex-direction:column;gap:9px}
+#scg-root .scg-grade{
+  display:flex;align-items:center;gap:12px;border:1px solid var(--line);border-radius:8px;
+  background:var(--panel-2);padding:10px 12px;
+}
+#scg-root .scg-grade b{font-family:var(--sans);font-size:38px;color:var(--accent);line-height:1}
+#scg-root .scg-grade.is-warn b{color:var(--warn)}
+#scg-root .scg-grade.is-bad b{color:var(--bad)}
+#scg-root .scg-grade span{font-size:11px;color:var(--ink-dim);letter-spacing:.06em}
+#scg-root .scg-bar{height:6px;border-radius:3px;background:#0a0d08;border:1px solid var(--line-soft);overflow:hidden;margin-top:5px}
+#scg-root .scg-bar i{display:block;height:100%;background:var(--accent)}
+#scg-root .scg-drow{font-size:11.5px;display:flex;gap:8px;align-items:flex-start;border-bottom:1px dotted var(--line-soft);padding-bottom:7px}
+#scg-root .scg-drow i{font-style:normal;flex:none;width:16px;text-align:center}
+#scg-root .scg-drow .scg-d-ok{color:var(--accent)}
+#scg-root .scg-drow .scg-d-warn{color:var(--warn)}
+#scg-root .scg-drow .scg-d-bad{color:var(--bad)}
+#scg-root .scg-drow b{color:var(--ink);font-weight:600;letter-spacing:.04em}
+#scg-root .scg-drow em{font-style:normal;float:right;color:var(--ink-dim);margin-left:8px}
+#scg-root .scg-drow p{color:var(--ink-dim);margin-top:1px}
+#scg-root .scg-again{
+  margin-top:4px;padding:11px 16px;border:1px solid var(--accent);border-radius:7px;
+  background:#10200f;color:var(--accent);font-size:12px;letter-spacing:.18em;text-transform:uppercase;
+}
+#scg-root .scg-again:hover{background:var(--accent);color:var(--accent-ink)}
+#scg-root .scg-credits{grid-column:1/-1;font-size:10px;line-height:1.55;color:var(--ink-faint);border-top:1px dotted var(--line-soft);padding-top:10px;letter-spacing:.02em}
+#scg-root .scg-credits b{color:var(--ink-dim);font-weight:600}
+#scg-root .scg-credits a{color:var(--ink-dim)}
+
+/* stack scroller in result stage */
+#scg-root .scg-stack-ui{position:absolute;right:10px;top:10px;bottom:10px;width:26px;display:flex;flex-direction:column;align-items:center;gap:6px;pointer-events:none;z-index:8}
+#scg-root .scg-stack-ui input{writing-mode:vertical-lr;direction:ltr;width:22px;flex:1;accent-color:var(--accent);pointer-events:auto}
+#scg-root .scg-winbtns{position:absolute;left:10px;bottom:34px;display:flex;gap:5px;z-index:8}
+#scg-root .scg-winbtns button{font-size:9.5px;letter-spacing:.1em;padding:3px 7px;border:1px solid var(--line);border-radius:4px;background:rgba(10,14,8,.7);color:var(--ink-dim)}
+#scg-root .scg-winbtns button.is-on{border-color:var(--accent);color:var(--accent)}
+#scg-root .scg-winbtns .scg-pebtn{margin-left:6px;color:#f0a49e;border-color:rgba(224,108,95,.5)}
+#scg-root .scg-winbtns .scg-pebtn.is-on{color:#fff;background:rgba(224,108,95,.35);border-color:var(--bad)}
+
+/* scan-range box on the scanogram */
+#scg-root .scg-rangebox{
+  position:absolute;left:0;width:100%;z-index:6;
+  background:rgba(95,224,138,.10);
+  border-top:2px solid var(--accent);border-bottom:2px solid var(--accent);
+  box-shadow:inset 0 0 0 1px rgba(95,224,138,.25);
+  cursor:move;touch-action:none;
+}
+#scg-root .scg-rangebox.is-off{
+  background:rgba(232,180,95,.10);border-color:var(--warn);
+  box-shadow:inset 0 0 0 1px rgba(232,180,95,.3);
+}
+#scg-root .scg-rh{position:absolute;left:0;right:0;height:0;cursor:ns-resize;touch-action:none}
+#scg-root .scg-rh::before{content:"";position:absolute;left:0;right:0;top:-10px;height:20px}
+#scg-root .scg-rh-top{top:0}
+#scg-root .scg-rh-bot{bottom:0}
+#scg-root .scg-rh::after{
+  content:"";position:absolute;left:50%;width:34px;height:4px;transform:translateX(-50%);
+  background:var(--accent);border-radius:2px;
+}
+#scg-root .scg-rh-top::after{top:-2px}
+#scg-root .scg-rh-bot::after{bottom:-2px}
+#scg-root .scg-rangebox.is-off .scg-rh::after{background:var(--warn)}
+#scg-root .scg-rh span{
+  position:absolute;left:8px;font-size:10px;letter-spacing:.08em;white-space:nowrap;
+  background:rgba(6,10,5,.82);padding:2px 6px;border:1px solid rgba(95,224,138,.5);border-radius:3px;
+  color:var(--accent);
+}
+#scg-root .scg-rangebox.is-off .scg-rh span{color:var(--warn);border-color:rgba(232,180,95,.5)}
+#scg-root .scg-rh-top span{top:3px}
+#scg-root .scg-rh-bot span{bottom:3px}
+#scg-root .scg-rangebox .scg-range-cap{left:auto!important;right:8px;
+  position:absolute;left:8px;top:50%;transform:translateY(-50%);
+  font-size:9.5px;letter-spacing:.16em;color:rgba(95,224,138,.8);pointer-events:none;
+}
+#scg-root .scg-rangemask{position:absolute;left:0;width:100%;background:rgba(4,6,4,.6);z-index:5;pointer-events:none}
+#scg-root .scg-pip-box{position:absolute;left:0;right:0;border-top:1.5px solid var(--accent);border-bottom:1.5px solid var(--accent);background:rgba(95,224,138,.12)}
+#scg-root .scg-pip.is-off .scg-pip-box{border-color:var(--warn);background:rgba(232,180,95,.12)}
+
+/* ---- patient set-up scene (prone, head first, arm overhead) ---- */
+#scg-root .scg-room{position:absolute;inset:0;z-index:4;background:radial-gradient(110% 70% at 50% 35%,#1b2218,#0a0c09 75%)}
+#scg-root .scg-room svg{position:absolute;inset:0;width:100%;height:100%}
+#scg-root .scg-room3d{position:absolute;inset:0;display:none}
+#scg-root .scg-room.is-3d .scg-room3d{display:block}
+#scg-root .scg-room3d::after{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(120% 95% at 50% 45%,transparent 60%,rgba(0,0,0,.28))}
+#scg-root .scg-room.is-3d .scg-roomsvg{display:none}
+#scg-root .scg-roomcap{position:absolute;left:50%;top:12px;transform:translateX(-50%);z-index:2;display:none;
+  text-align:center;padding:7px 14px;border-radius:8px;background:rgba(10,14,9,.72);backdrop-filter:blur(3px);max-width:92%}
+#scg-root .scg-room.is-3d .scg-roomcap{display:block}
+#scg-root .scg-roomcap b{display:block;font-family:var(--sans);font-size:12px;letter-spacing:.24em;color:var(--ink)}
+#scg-root .scg-roomcap span{display:block;font-size:10.5px;color:#9fe7b8;letter-spacing:.04em;margin-top:2px}
+#scg-root .scg-room .scg-couch{transition:transform 4.2s cubic-bezier(.45,.05,.25,1)}
+#scg-root .scg-room.is-in .scg-couch{transform:translateX(70px)}
+#scg-root .scg-room .scg-laser{opacity:0;transition:opacity .6s ease 4.1s}
+#scg-root .scg-room.is-in .scg-laser{opacity:1}
+#scg-root .scg-room .scg-led{animation:scg-ledblink 1.6s ease-in-out infinite}
+@keyframes scg-ledblink{0%,100%{opacity:.35}50%{opacity:1}}
+
+/* responsive */
+@media (max-width:780px){
+  #scg-root .scg-body{grid-template-columns:1fr}
+  #scg-root .scg-stage{border-right:0;border-bottom:1px solid var(--line)}
+  #scg-root .scg-result{grid-template-columns:1fr}
+  #scg-root .scg-rail-body{max-height:360px}
+}
+@media (max-width:470px){
+  #scg-root{font-size:13px}
+  #scg-root .scg-mark-tx span{display:none}
+  #scg-root .scg-phasechip{font-size:9px;letter-spacing:.1em;padding:4px 7px}
+  #scg-root .scg-viewport{max-height:74vh}
+  #scg-root .scg-log{height:84px}
+  #scg-root .scg-roomcap{top:8px;padding:5px 9px}
+  #scg-root .scg-roomcap b{font-size:10px;letter-spacing:.1em}
+  #scg-root .scg-roomcap span{font-size:9.5px}
+}
+
+/* ===== "Tibia the Best" achievement / marker ===== */
+#scg-root .scg-ach-wrap{
+  grid-column:1/-1;display:flex;flex-direction:column;align-items:center;
+  padding:16px 14px 6px;background:var(--panel);border-top:1px solid var(--line);
+}
+#scg-root .scg-ach{
+  width:100%;max-width:440px;position:relative;
+  background:linear-gradient(135deg,#141a12 0%,#20281c 100%);
+  border-left:5px solid var(--accent);border-radius:8px;
+  padding:16px 18px;display:flex;align-items:center;gap:16px;
+  box-shadow:0 10px 30px rgba(0,0,0,.5);
+  opacity:0;transform:translateX(90px);
+}
+#scg-root .scg-ach-logo{
+  width:40px;height:40px;object-fit:contain;flex-shrink:0;border-radius:5px;
+  background:#d3d5d3;padding:3px;opacity:0;
+}
+#scg-root .scg-ach-marker{
+  width:52px;height:52px;flex-shrink:0;position:relative;
+  background:linear-gradient(145deg,var(--accent),#3fbf6a);border-radius:10px;
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 4px 12px rgba(95,224,128,.45);
+  opacity:0;transform:translateY(-70px) scale(1.7) rotate(-12deg);
+}
+#scg-root .scg-ach-marker::after{               /* "S" mark */
+  content:'S';font-family:var(--sans);font-weight:800;font-size:21px;letter-spacing:.02em;color:#0c1a0f;line-height:1;
+}
+#scg-root .scg-ach-marker::before{
+  content:'';position:absolute;inset:-8px;border-radius:14px;
+  background:radial-gradient(circle,rgba(95,224,128,.5) 0%,transparent 70%);opacity:0;
+}
+#scg-root .scg-ach-text{flex:1;min-width:0;opacity:0;transform:translateY(8px)}
+#scg-root .scg-ach-label{font-size:11px;font-weight:600;letter-spacing:1.3px;color:var(--accent);text-transform:uppercase;margin-bottom:3px;font-family:var(--sans)}
+#scg-root .scg-ach-title{font-size:19px;font-weight:700;color:#f4f7f2;line-height:1.15;font-family:var(--sans)}
+#scg-root .scg-ach-sub{font-size:12px;color:var(--ink-dim);margin-top:3px}
+#scg-root .scg-ach-share{
+  margin-top:14px;text-align:center;font-size:13px;color:var(--ink-dim);
+  opacity:0;transform:translateY(10px);
+}
+#scg-root .scg-ach-share strong{color:var(--accent)}
+#scg-root .scg-ach-replay{
+  position:absolute;top:6px;right:6px;background:rgba(255,255,255,.07);border:0;
+  color:var(--ink-dim);font-size:11px;padding:4px 9px;border-radius:4px;cursor:pointer;
+  opacity:0;transition:opacity .25s,background .25s,color .25s;font-family:var(--mono);
+}
+#scg-root .scg-ach:hover .scg-ach-replay{opacity:1}
+#scg-root .scg-ach-replay:hover{background:rgba(255,255,255,.14);color:#e2e8f0}
+#scg-root .scg-ach-wrap.is-playing .scg-ach{ animation:scg-ach-slide .7s cubic-bezier(.22,1,.36,1) .2s forwards; }
+#scg-root .scg-ach-wrap.is-playing .scg-ach-logo{ animation:scg-ach-fade .5s ease .9s forwards; }
+#scg-root .scg-ach-wrap.is-playing .scg-ach-marker{ animation:scg-ach-stamp .85s cubic-bezier(.34,1.4,.64,1) .55s forwards; }
+#scg-root .scg-ach-wrap.is-playing .scg-ach-marker::before{ animation:scg-ach-glow .6s ease 1.15s forwards; }
+#scg-root .scg-ach-wrap.is-playing .scg-ach-text{ animation:scg-ach-textin .5s ease 1.25s forwards; }
+#scg-root .scg-ach-wrap.is-playing .scg-ach-share{ animation:scg-ach-up .55s ease 1.7s forwards; }
+@keyframes scg-ach-slide{to{opacity:1;transform:translateX(0)}}
+@keyframes scg-ach-fade{to{opacity:1}}
+@keyframes scg-ach-textin{to{opacity:1;transform:translateY(0)}}
+@keyframes scg-ach-up{to{opacity:1;transform:translateY(0)}}
+@keyframes scg-ach-stamp{
+  0%{opacity:0;transform:translateY(-70px) scale(1.7) rotate(-12deg)}
+  55%{opacity:1;transform:translateY(10px) scale(.92) rotate(4deg)}
+  75%{transform:translateY(-5px) scale(1.06) rotate(-2deg)}
+  100%{opacity:1;transform:translateY(0) scale(1) rotate(0)}
+}
+@keyframes scg-ach-glow{
+  0%{opacity:0;transform:scale(.6)}40%{opacity:1;transform:scale(1.1)}100%{opacity:0;transform:scale(1.4)}
+}
+@media (prefers-reduced-motion:reduce){
+  #scg-root .scg-ach,#scg-root .scg-ach-logo,#scg-root .scg-ach-marker,
+  #scg-root .scg-ach-text,#scg-root .scg-ach-share{opacity:1!important;transform:none!important;animation:none!important}
+  #scg-root .scg-room .scg-couch{transition-duration:.01s}
+}
+#scg-root .scg-fov{
+  position:absolute;z-index:6;
+  background:rgba(95,224,138,.07);
+  border:2px solid var(--accent);
+  box-shadow:inset 0 0 0 1px rgba(95,224,138,.25),0 0 12px rgba(95,224,138,.15);
+  cursor:move;touch-action:none;
+}
+#scg-root .scg-fov.is-off{
+  background:rgba(232,180,95,.08);border-color:var(--warn);
+  box-shadow:inset 0 0 0 1px rgba(232,180,95,.3);
+}
+#scg-root .scg-fov-cap{
+  position:absolute;left:4px;top:3px;font-size:9px;letter-spacing:.14em;
+  color:rgba(95,224,138,.9);pointer-events:none;text-shadow:0 0 4px #000;white-space:nowrap;
+}
+#scg-root .scg-fov.is-off .scg-fov-cap{color:var(--warn)}
+#scg-root .scg-eh{position:absolute;touch-action:none}
+#scg-root .scg-eh-top,#scg-root .scg-eh-bot{left:0;right:0;height:0;cursor:ns-resize}
+#scg-root .scg-eh-left,#scg-root .scg-eh-right{top:0;bottom:0;width:0;cursor:ew-resize}
+#scg-root .scg-eh-top{top:0}#scg-root .scg-eh-bot{bottom:0}
+#scg-root .scg-eh-left{left:0}#scg-root .scg-eh-right{right:0}
+#scg-root .scg-eh-top::before,#scg-root .scg-eh-bot::before{content:"";position:absolute;left:0;right:0;top:-11px;height:22px}
+#scg-root .scg-eh-left::before,#scg-root .scg-eh-right::before{content:"";position:absolute;top:0;bottom:0;left:-11px;width:22px}
+#scg-root .scg-eh::after{content:"";position:absolute;background:var(--accent);border-radius:2px}
+#scg-root .scg-eh-top::after,#scg-root .scg-eh-bot::after{left:50%;width:34px;height:4px;transform:translateX(-50%)}
+#scg-root .scg-eh-left::after,#scg-root .scg-eh-right::after{top:50%;height:34px;width:4px;transform:translateY(-50%)}
+#scg-root .scg-eh-top::after{top:-2px}#scg-root .scg-eh-bot::after{bottom:-2px}
+#scg-root .scg-eh-left::after{left:-2px}#scg-root .scg-eh-right::after{right:-2px}
+#scg-root .scg-fov.is-off .scg-eh::after{background:var(--warn)}
+#scg-root .scg-fovmask{position:absolute;background:rgba(4,6,4,.62);z-index:5;pointer-events:none}
+
+/* DFOV box edge labels, pip box, orientation labels, recon segmented buttons */
+#scg-root .scg-eh-tag{position:absolute;left:8px;font-size:10px;letter-spacing:.08em;white-space:nowrap;pointer-events:none;
+  background:rgba(6,10,5,.82);padding:2px 6px;border:1px solid rgba(95,224,138,.5);border-radius:3px;color:var(--accent)}
+#scg-root .scg-eh-top .scg-eh-tag{top:4px}
+#scg-root .scg-eh-bot .scg-eh-tag{bottom:4px}
+#scg-root .scg-fov.is-off .scg-eh-tag{color:var(--warn);border-color:rgba(232,180,95,.5)}
+#scg-root .scg-fov-cap{left:0;top:-17px}
+#scg-root .scg-pip-box{right:auto;border:1.5px solid var(--accent)}
+#scg-root .scg-pip.is-off .scg-pip-box{border-color:var(--warn)}
+#scg-root .scg-orient{position:absolute;inset:0;pointer-events:none;z-index:7}
+#scg-root .scg-orient i{position:absolute;font-style:normal;font-size:9.5px;letter-spacing:.16em;color:rgba(159,231,184,.75);text-shadow:0 0 5px #000}
+#scg-root .scg-orient .o-t{top:30px;left:50%;transform:translateX(-50%)}
+#scg-root .scg-orient .o-b{bottom:58px;left:50%;transform:translateX(-50%)}
+#scg-root .scg-orient .o-l{left:8px;top:50%;transform:translateY(-50%)}
+#scg-root .scg-orient .o-r{right:40px;top:50%;transform:translateY(-50%)}
+#scg-root .scg-wsep{width:6px}
+#scg-root .scg-choice button.is-on{border-color:var(--accent);background:#10200f;box-shadow:inset 3px 0 0 var(--accent)}
+#scg-root .scg-stage.no-ret .scg-reticle{display:none}
+#scg-root .scg-seg{display:flex;align-items:center;gap:5px;flex-wrap:wrap}
+#scg-root .scg-seg span{font-size:10px;letter-spacing:.14em;color:var(--ink-faint);width:52px}
+#scg-root .scg-seg button{flex:1;font-size:10.5px;letter-spacing:.08em;padding:7px 6px;border:1px solid var(--line);border-radius:5px;background:var(--panel-2);color:var(--ink-dim)}
+#scg-root .scg-seg button:hover{border-color:var(--accent);color:var(--accent)}
+#scg-root .scg-seg button.is-on{border-color:var(--accent);color:var(--accent-ink);background:var(--accent)}
+
+/* ================= MR-I READY · MRI ELBOW additions ================= */
+#scg-root .scg-cli::before{content:"mr-i $"}
+#scg-root .mre-grid{position:absolute;inset:0;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:2px;background:#060806;z-index:3}
+#scg-root .mre-cell{position:relative;background:#000;overflow:hidden}
+#scg-root .mre-sq{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%)}
+#scg-root .mre-sq>img,#scg-root .mre-sq>canvas,#scg-root .mre-sq>svg{position:absolute;inset:0;width:100%;height:100%;display:block}
+#scg-root .mre-sq>svg{touch-action:none;overflow:visible}
+#scg-root .mre-lab{position:absolute;left:6px;top:5px;z-index:2;font-size:9.5px;letter-spacing:.14em;color:#9fe7b8;text-shadow:0 0 5px #000;pointer-events:none;white-space:pre;line-height:1.45}
+#scg-root .mre-lab2{position:absolute;right:6px;bottom:5px;z-index:2;font-size:9px;letter-spacing:.1em;color:var(--ink-dim);text-shadow:0 0 5px #000;pointer-events:none;text-align:right;white-space:pre}
+#scg-root .mre-ori{position:absolute;font-size:9px;letter-spacing:.12em;color:rgba(159,231,184,.6);text-shadow:0 0 4px #000;pointer-events:none;z-index:2}
+#scg-root .mre-ori.t{top:4px;left:50%;transform:translateX(-50%)}
+#scg-root .mre-ori.b{bottom:4px;left:50%;transform:translateX(-50%)}
+#scg-root .mre-ori.l{left:5px;top:50%;transform:translateY(-50%)}
+#scg-root .mre-ori.r{right:5px;top:50%;transform:translateY(-50%)}
+#scg-root .mre-cell.is-active{box-shadow:inset 0 0 0 1px rgba(95,224,138,.45)}
+#scg-root .mre-cell.is-wait .mre-sq{opacity:.18}
+#scg-root .mre-acqbar{position:absolute;left:0;bottom:0;height:3px;background:var(--accent);box-shadow:0 0 10px rgba(95,224,138,.7);z-index:3}
+#scg-root .mre-info{position:absolute;inset:0;padding:12px 12px;font-size:10.5px;color:var(--ink-dim);display:flex;flex-direction:column;gap:6px;overflow:auto}
+#scg-root .mre-info b{color:var(--ink)}
+#scg-root .mre-info .mre-row{display:flex;gap:7px;align-items:center}
+#scg-root .mre-info .mre-sw{width:10px;height:10px;border-radius:2px;flex:none}
+/* svg planning boxes */
+#scg-root .mre-box{fill:rgba(95,224,138,.07);stroke:var(--accent);stroke-width:1.3;vector-effect:non-scaling-stroke;cursor:move}
+#scg-root .mre-box.is-off{stroke:var(--warn);fill:rgba(232,180,95,.07)}
+#scg-root .mre-box.is-fov{stroke-dasharray:5 4}
+#scg-root .mre-sl{stroke:rgba(95,224,138,.55);stroke-width:.8;vector-effect:non-scaling-stroke;pointer-events:none}
+#scg-root .mre-sl.is-off{stroke:rgba(232,180,95,.55)}
+#scg-root .mre-mask{fill:rgba(0,0,0,.42);pointer-events:none}
+#scg-root .mre-hd{stroke:transparent;stroke-width:16;vector-effect:non-scaling-stroke}
+#scg-root .mre-hd.h{cursor:ew-resize}
+#scg-root .mre-hd.v{cursor:ns-resize}
+#scg-root .mre-grip{fill:var(--accent);pointer-events:none}
+#scg-root .mre-grip.is-off{fill:var(--warn)}
+#scg-root .mre-tx{font-family:var(--mono);font-size:7.5px;letter-spacing:.06em;fill:#9fe7b8;paint-order:stroke;stroke:#000;stroke-width:2.2px;pointer-events:none}
+#scg-root .mre-tx.is-off{fill:var(--warn)}
+#scg-root .mre-ref{stroke-width:1;vector-effect:non-scaling-stroke;fill:none;pointer-events:none;opacity:.9}
+/* protocol cards */
+#scg-root .mre-cards{display:flex;flex-direction:column;gap:8px}
+#scg-root .mre-card{border:1px solid var(--line);border-radius:7px;background:var(--panel-2);padding:9px 10px;display:flex;flex-direction:column;gap:6px}
+#scg-root .mre-card.is-done{border-color:rgba(95,224,138,.5)}
+#scg-root .mre-card-h{display:flex;align-items:center;gap:8px}
+#scg-root .mre-card-h b{font-family:var(--sans);letter-spacing:.14em;font-size:12px;color:var(--ink)}
+#scg-root .mre-card-h .mre-sw{width:10px;height:10px;border-radius:2px}
+#scg-root .mre-chip{margin-left:auto;font-size:9.5px;letter-spacing:.12em;padding:2px 7px;border-radius:999px;border:1px solid var(--line);color:var(--ink-faint);white-space:nowrap}
+#scg-root .mre-chip.ok{color:var(--accent);border-color:rgba(95,224,138,.5)}
+#scg-root .mre-chip.warn{color:var(--warn);border-color:rgba(232,180,95,.5)}
+#scg-root .mre-card p{font-size:10.5px;color:var(--ink-dim);line-height:1.4}
+#scg-root .mre-card .scg-btn{padding:6px 9px;font-size:11px}
+#scg-root .mre-seqs{display:flex;flex-direction:column;gap:4px}
+#scg-root .mre-seqs label{display:flex;gap:7px;align-items:flex-start;font-size:10.5px;color:var(--ink-dim);line-height:1.35;cursor:pointer;padding:4px 6px;border:1px solid var(--line-soft);border-radius:5px;background:#10140c}
+#scg-root .mre-seqs label.is-on{border-color:rgba(95,224,138,.45);color:var(--ink)}
+#scg-root .mre-seqs input{accent-color:var(--accent);margin-top:2px;flex:none}
+#scg-root .mre-seqs label b{color:var(--ink);font-weight:600;letter-spacing:.04em}
+#scg-root .mre-seqs label em{font-style:normal;color:var(--accent);font-size:9.5px;letter-spacing:.08em;margin-left:4px}
+#scg-root .mre-step{display:flex;align-items:center;gap:6px}
+#scg-root .mre-step span{font-size:10px;letter-spacing:.14em;color:var(--ink-faint);width:52px}
+#scg-root .mre-step button{width:30px;padding:5px 0;border:1px solid var(--line);border-radius:5px;background:var(--panel-2);color:var(--ink)}
+#scg-root .mre-step button:hover{border-color:var(--accent);color:var(--accent)}
+#scg-root .mre-step output{flex:1;text-align:center;font-size:12px;color:var(--accent)}
+#scg-root .mre-cov{display:flex;flex-direction:column;gap:3px}
+#scg-root .mre-cov div{display:flex;gap:7px;font-size:10.5px;color:var(--ink-faint);line-height:1.35}
+#scg-root .mre-cov div i{font-style:normal;width:12px;flex:none}
+#scg-root .mre-cov div.ok{color:var(--ink)} #scg-root .mre-cov div.ok i{color:var(--accent)}
+#scg-root .mre-cov div.miss i{color:var(--warn)}
+#scg-root .mre-view{position:absolute;inset:0;z-index:3;background:#000}
+#scg-root .mre-view canvas{position:absolute;inset:0;margin:auto;max-width:100%;max-height:100%}
+#scg-root .mre-tbl{width:100%;border-collapse:collapse;font-size:10.5px;margin-top:4px}
+#scg-root .mre-tbl th{text-align:left;font-weight:600;color:var(--ink);letter-spacing:.08em;padding:5px 6px;border-bottom:1px solid var(--line)}
+#scg-root .mre-tbl td{vertical-align:top;color:var(--ink-dim);padding:5px 6px;border-bottom:1px dotted var(--line-soft);line-height:1.4}
+#scg-root .mre-tbl td b{color:var(--ink)}
+#scg-root .mre-tbl tr.is-on td:first-child{box-shadow:inset 3px 0 0 var(--accent)}
+#scg-root .mre-heroes{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+#scg-root .mre-heroes .scg-hero{aspect-ratio:1/1}
+#scg-root .mre-heroes canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
+#scg-root .scg-ach-marker::after{content:'E'}
+/* completed-series tray: drag a series onto the localiser of the same plane */
+#scg-root .mre-tray{display:flex;gap:7px;flex-wrap:wrap}
+#scg-root .mre-thumb{position:relative;width:76px;border:1px solid var(--line);border-radius:6px;background:#000;overflow:hidden;cursor:grab;touch-action:none;user-select:none;padding:0;color:var(--ink)}
+#scg-root .mre-thumb canvas{display:block;width:100%;height:auto;pointer-events:none}
+#scg-root .mre-thumb span{position:absolute;left:0;right:0;bottom:0;font-size:8.5px;letter-spacing:.08em;padding:2px 4px;background:rgba(6,10,5,.82);text-align:left;pointer-events:none}
+#scg-root .mre-thumb.is-used{box-shadow:inset 0 0 0 2px var(--accent)}
+#scg-root .mre-thumb:hover{border-color:var(--accent)}
+.mre-ghost{position:fixed;z-index:100000;width:76px;pointer-events:none;opacity:.85;border:1px solid #5fe08a;border-radius:6px;box-shadow:0 6px 18px rgba(0,0,0,.6);transform:translate(-50%,-50%)}
+#scg-root .mre-cell.is-drop{box-shadow:inset 0 0 0 2px var(--accent);background:#0b1a0e}
+#scg-root .mre-cell.is-nodrop{opacity:.45}
+#scg-root .mre-restore{position:absolute;right:5px;top:5px;z-index:4;font-size:9px;letter-spacing:.1em;padding:3px 7px;border:1px solid var(--line);border-radius:4px;background:rgba(10,14,8,.8);color:var(--ink-dim)}
+#scg-root .mre-restore:hover{border-color:var(--accent);color:var(--accent)}
+#scg-root .mre-cell.is-series .mre-lab{color:#ffe08a}
+@media (max-width:780px){ #scg-root .mre-heroes{grid-template-columns:1fr 1fr 1fr} }
+@media (max-width:470px){ #scg-root .mre-lab{font-size:8.5px;letter-spacing:.08em} #scg-root .mre-tx{font-size:9px} }
+/* ================= MR-I READY · MRI SHOULDER / MRCP additions ================= */
+#scg-root .scg-ach-marker::after{content:'T'}
+#scg-root .mre-rot{fill:var(--panel);stroke:var(--accent);stroke-width:1.6;vector-effect:non-scaling-stroke;cursor:grab}
+#scg-root .mre-rot.is-off{stroke:var(--warn)}
+#scg-root .mre-rotline{stroke:var(--accent);stroke-width:1;stroke-dasharray:3 3;vector-effect:non-scaling-stroke;pointer-events:none}
+#scg-root .mre-rotline.is-off{stroke:var(--warn)}
+#scg-root .mre-rot.is-lock{stroke:var(--ink-faint);stroke-dasharray:2 2;fill:rgba(10,14,8,.85);cursor:not-allowed}
+#scg-root .mre-rotline.is-lock{stroke:var(--ink-faint)}
+#scg-root .mre-tx.is-lock{fill:var(--ink-dim)}
+#scg-root .mre-cell.is-want{animation:mrs-want 1.4s ease-in-out infinite}
+@keyframes mrs-want{0%,100%{box-shadow:inset 0 0 0 2px rgba(232,180,95,.25)}50%{box-shadow:inset 0 0 0 3px rgba(232,180,95,.9)}}
+#scg-root .mre-want{position:absolute;left:50%;bottom:24px;transform:translateX(-50%);z-index:4;pointer-events:none;white-space:nowrap;
+  font-size:10px;letter-spacing:.12em;color:var(--warn);background:rgba(10,8,4,.85);border:1px solid rgba(232,180,95,.6);border-radius:5px;padding:4px 8px}
+#scg-root .mre-angbox .mre-tray{margin-top:2px}
+#scg-root .mre-ang button.is-lock{opacity:.45;cursor:not-allowed}
+#scg-root .mre-hgrip{fill:var(--accent);pointer-events:none}
+#scg-root .mre-hgrip.is-off{fill:var(--warn)}
+#scg-root .mre-card.is-locked{opacity:.55}
+#scg-root .mre-ang{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+#scg-root .mre-ang span{font-size:10px;letter-spacing:.14em;color:var(--ink-faint);width:52px}
+#scg-root .mre-ang button{padding:5px 7px;border:1px solid var(--line);border-radius:5px;background:var(--panel-2);color:var(--ink);font-size:10.5px}
+#scg-root .mre-ang button:hover{border-color:var(--accent);color:var(--accent)}
+#scg-root .mre-ang output{flex:1;text-align:center;font-size:12px;color:var(--accent);min-width:44px}
+#scg-root .mre-angbox{border:1px solid var(--line);border-radius:7px;background:var(--panel-2);padding:9px 10px;display:flex;flex-direction:column;gap:7px}
+#scg-root .mre-angbox.is-ok{border-color:rgba(95,224,138,.6)}
+#scg-root .mre-angbox.is-bad{border-color:rgba(232,180,95,.55)}
+#scg-root .mre-angbox b.t{font-family:var(--sans);letter-spacing:.14em;font-size:11px;color:var(--ink)}
+#scg-root .mre-scroll{position:absolute;right:5px;top:28px;z-index:4;display:flex;flex-direction:column;gap:3px}
+#scg-root .mre-scroll button{width:24px;height:22px;font-size:10px;padding:0;border:1px solid var(--line);border-radius:4px;background:rgba(10,14,8,.8);color:var(--ink-dim)}
+#scg-root .mre-scroll button:hover{border-color:var(--accent);color:var(--accent)}
+#scg-root .scg-winbtns{flex-wrap:wrap;max-width:calc(100% - 60px)}
+</style>
+</head>
+<body style="margin:0;background:#0c0e0b">
+
+<!-- ================= MR-I READY · TIBIA + FIBULA ================= -->
+<div id="scg-root">
+
+  <div class="scg-topbar">
+    <div class="scg-mark" id="scgMarkMini"></div>
+    <div class="scg-spacer"></div>
+    <div class="scg-phasechip" id="scgPhaseChip">STANDBY</div>
+  </div>
+
+  <div class="scg-body">
+    <div class="scg-stage" id="scgStage">
+      <div class="scg-viewport" id="scgViewport">
+
+        <!-- patient set-up: MRI room -->
+        <div class="scg-room scg-hidden" id="scgRoom">
+          <div class="scg-room3d" id="scgRoom3d" aria-label="3-D view: the patient supine, feet first, with flexible arrays wrapped round the right lower leg"></div>
+          <div class="scg-roomcap"><b>PATIENT ON THE TABLE</b><span id="scgRoomStep">choose how the leg should lie</span></div>
+          <svg class="scg-roomsvg" viewBox="0 0 600 600" preserveAspectRatio="xMidYMid meet" aria-label="Patient on the MRI table, feet first">
+            <rect x="0" y="452" width="600" height="148" fill="#0e110d"/>
+            <line x1="0" y1="452" x2="600" y2="452" stroke="#2c3a22" stroke-width="2"/>
+            <rect x="0" y="334" width="400" height="20" rx="8" fill="#2a3127"/>
+            <path d="M20 300 C 60 294, 150 292, 260 300 L 262 330 L 18 330 Z" fill="#8fb3c9" stroke="#3f5a6a"/>
+            <ellipse cx="290" cy="310" rx="26" ry="18" fill="#cf9a7c" stroke="#7d5a43"/>
+            <path d="M230 300 a 26 22 0 0 1 52 0 Z" fill="#3d4a5c" stroke="#26303c"/>
+            <path d="M420 300 V130 q0 -30 30 -30 h120 V300 Z M420 360 V470 h150 V360 Z" fill="#dfe5dc" stroke="#7f8a7a"/>
+            <rect x="420" y="300" width="150" height="60" fill="rgba(10,14,9,.55)" stroke="#5c6758"/>
+            <text x="300" y="58" fill="#dfe7d6" font-size="15" font-family="Trebuchet MS,sans-serif" letter-spacing="4" text-anchor="middle">MRI · FEET FIRST · LEG ARRAYS</text>
+          </svg>
+        </div>
+
+        <!-- 2 x 2 localiser / planning grid -->
+        <div class="mre-grid scg-hidden" id="mreGrid">
+          <div class="mre-cell" data-p="sag"><div class="mre-sq"><canvas width="256" height="256"></canvas><img alt="Sagittal localiser"><svg viewBox="0 0 256 256" preserveAspectRatio="none"></svg></div>
+            <div class="mre-lab"></div><i class="mre-ori t">S</i><i class="mre-ori b">I</i><i class="mre-ori l">A</i><i class="mre-ori r">P</i><div class="mre-lab2"></div></div>
+          <div class="mre-cell" data-p="cor"><div class="mre-sq"><canvas width="256" height="256"></canvas><img alt="Coronal localiser"><svg viewBox="0 0 256 256" preserveAspectRatio="none"></svg></div>
+            <div class="mre-lab"></div><i class="mre-ori t">S</i><i class="mre-ori b">I</i><i class="mre-ori l">R</i><i class="mre-ori r">L</i><div class="mre-lab2"></div></div>
+          <div class="mre-cell" data-p="ax"><div class="mre-sq"><canvas width="256" height="256"></canvas><img alt="Axial localiser"><svg viewBox="0 0 256 256" preserveAspectRatio="none"></svg></div>
+            <div class="mre-lab"></div><i class="mre-ori t">A</i><i class="mre-ori b">P</i><i class="mre-ori l">R</i><i class="mre-ori r">L</i><div class="mre-lab2"></div></div>
+          <div class="mre-cell" data-p="x"><div class="mre-sq"><canvas width="384" height="384"></canvas></div>
+            <div class="mre-lab"></div><div class="mre-info scg-hidden" id="mreInfo"></div><div class="mre-lab2"></div></div>
+        </div>
+
+        <!-- single-series viewer -->
+        <div class="mre-view scg-hidden" id="mreView"><canvas id="mreViewCv" width="512" height="512"></canvas></div>
+
+        <div class="scg-acq scg-hidden" id="scgAcq">
+          <div class="scg-acq-band"></div>
+          <h4 id="scgAcqTitle">SCANNING</h4>
+          <div class="scg-acq-num" id="scgAcqNum"></div>
+        </div>
+        <div class="scg-vp-tl" id="scgVpTL"></div>
+        <div class="scg-vp-bl" id="scgVpBL"></div>
+        <div class="scg-vp-br" id="scgVpBR"></div>
+        <div class="scg-stack-ui scg-hidden" id="scgStackUI">
+          <input type="range" id="scgStackSlider" min="0" max="10" value="0" aria-label="slice">
+        </div>
+        <div class="scg-winbtns scg-hidden" id="scgWinBtns"></div>
+      </div>
+    </div>
+
+    <aside class="scg-rail">
+      <div class="scg-rail-head">
+        <h3 id="scgRailTitle">Console</h3>
+        <p id="scgRailDesc">Awaiting operator</p>
+      </div>
+      <div class="scg-rail-body" id="scgRailBody"></div>
+      <div class="scg-cmds" id="scgCmds"></div>
+      <form class="scg-cli" id="scgCliForm" autocomplete="off">
+        <input id="scgCli" type="text" placeholder="type a command — try: help" aria-label="command input">
+      </form>
+    </aside>
+
+    <div class="scg-log" id="scgLog"></div>
+
+    <div class="scg-ach-wrap scg-hidden" id="scgAch">
+      <div class="scg-ach" id="scgAchBanner">
+        <img class="scg-ach-logo" id="scgAchLogo" alt="Rad-Lad">
+        <div class="scg-ach-marker"></div>
+        <div class="scg-ach-text">
+          <div class="scg-ach-label">Marker Unlocked</div>
+          <div class="scg-ach-title">Tibia the Best</div>
+          <div class="scg-ach-sub">Tibia + fibula · axial square to the bone, coronal + sagittal angled on the knee, knee joint to ankle joint</div>
+        </div>
+        <button class="scg-ach-replay" id="scgAchReplay" type="button">Replay</button>
+      </div>
+      <div class="scg-ach-share">Share your <strong>Tibia the Best</strong> Marker achievement below!</div>
+    </div>
+
+    <section class="scg-result scg-hidden" id="scgResult"></section>
+  </div>
+
+  <div class="scg-title" id="scgTitle">
+    <div class="scg-logo-plate"><img id="scgLogoBig" alt="Rad-Lad"></div>
+    <h1><span class="scg-the">MR-I READY</span>TIBIA + FIBULA</h1>
+    <div class="scg-sub">Set the leg up with flexible arrays from knee to ankle, run the 3-plane localiser, plan the axial square to the tibia from above the patella to past the ankle — then angle the coronal and sagittal on it</div>
+    <button class="scg-start" id="scgStart">▶ Begin</button>
+    <div class="scg-scouts"><img id="scgT1" alt=""><img id="scgT2" alt=""><img id="scgT3" alt=""></div>
+    <div class="scg-fine">Demonstration only — an educational simulation of MRI planning, not a medical device, not for clinical use.
+      Every diagnostic image is reformatted from one real 3D MRI of a healthy volunteer's leg (public-domain research data), shown with its true geometry; the localiser is rebuilt from the same volumes — see the credits on the results screen.</div>
+  </div>
+
+</div>
+
+<script src="assets/calib.js"></script>
+<script src="room3d.js?v=1"></script>
+<script src="app.js?v=1"></script>
+</body>
+</html>
